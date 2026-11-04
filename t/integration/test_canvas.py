@@ -8,7 +8,7 @@ from time import monotonic, sleep
 
 import pytest
 
-from celery import chain, chord, group, signature, states
+from celery import chain, chord, group, signature, states, workflow
 from celery.backends.base import BaseKeyValueStoreBackend
 from celery.canvas import StampingVisitor, _chain
 from celery.exceptions import ChordError, ImproperlyConfigured, TimeoutError
@@ -4068,6 +4068,18 @@ class test_chord:
             result.get(timeout=TIMEOUT)
         # The chord in the group passes the group's errbacks on to its body
         await_redis_echo(['group', 'chord'], redis_key=redis_key)
+
+
+class test_workflow:
+
+    def test_group(self, manager):
+        w = workflow()
+        n1 = w.add_node(group([add.si(1, 1), add.si(2, 2)]))
+        n2 = w.add_node(add.si(3, 3))
+        n3 = w.add_node(tsum.s(), inputs={"nums": n1})
+        n4 = w.add_node(add.s(), inputs={"x": n2, "y": n3})
+
+        assert w.apply_async(outputs=[n2, n1, n4, n3]).get(timeout=5) == [6, [2, 4], 12, 6]
 
 
 class test_xmap_xstarmap:

@@ -293,15 +293,14 @@ class Backend:
         if (store_result and not _is_request_ignore_result(request)):
             self.store_result(task_id, result, state, request=request)
         if request and request.chord:
-            if isinstance(request.chord, list):
-                for group, group_index, chord, _ in zip(*request.chord):
-                    new_request = Context(request.__dict__)
-                    new_request.group = group
-                    new_request.group_index = group_index
-                    new_request.chord = chord
-                    self.on_chord_part_return(new_request, state, result)
-            else:
-                self.on_chord_part_return(request, state, result)
+            self.on_chord_part_return(request, state, result)
+        elif request and request.workflow:
+            for workflow_elem in request.workflow:
+                new_request = Context(request.__dict__)
+                new_request.group = workflow_elem["group"]
+                new_request.group_index = workflow_elem["group_index"]
+                new_request.chord = workflow_elem["chord"]
+                self.on_chord_part_return(new_request, state, result)
 
     def mark_as_failure(self, task_id, exc,
                         traceback=None, request=None,

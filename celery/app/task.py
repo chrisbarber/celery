@@ -105,6 +105,7 @@ class Context:
     called_directly = True
     chain = None
     chord = None
+    workflow = None
     correlation_id = None
     delivery_info = None
     errbacks = None
@@ -718,7 +719,7 @@ class Task:
                 }
             )
             args = args[1:]
-        elif isinstance(self.request.chord, list) and options.get("unpack_outputs", False):
+        elif self.request.workflow and options.get("unpack_outputs", False):
             args = args[0] if args else ()
 
         if self.typing:

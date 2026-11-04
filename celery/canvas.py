@@ -2871,7 +2871,6 @@ class workflow(Signature):
             output_node_ids = id(outputs)
         else:
             output_node_ids = None
-        #self.nodes.append(ident.s())
         self.nodes.append(self.app.tasks['celery.accumulate'].s(kwarg="arg"))
         if _id:
             self.nodes[-1].freeze(_id)
@@ -2906,19 +2905,22 @@ class workflow(Signature):
                     output_sig = parent_sig.nodes[-1]
                 else:
                     output_sig = parent_sig
-                output_sig.options.setdefault("chord", [[], [], [], []])
-                output_sig.options["chord"][0].append(group_id)
-                output_sig.options["chord"][1].append(idx)
-                output_sig.options["chord"][2].append(node_sig)
-                output_sig.options["chord"][3].append(
-                    [
-                        (
-                            t.nodes[-1].id
-                            if isinstance(t, workflow)
-                            else t.body.id if getattr(t, "tasks", None) else t.id
-                        )
-                        for t in header_tasks
-                    ]
+                output_sig.set(chord=None)
+                output_sig.options.setdefault("workflow", [])
+                output_sig.options["workflow"].append(
+                    {
+                        "group": group_id,
+                        "group_index": idx,
+                        "chord": node_sig,
+                        "parents": [
+                            (
+                                t.nodes[-1].id
+                                if isinstance(t, workflow)
+                                else t.body.id if getattr(t, "tasks", None) else t.id
+                            )
+                            for t in header_tasks
+                        ]
+                    }
                 )
             if not node_sig.immutable and any(p for p in parents.keys() if p is not None):
                 kwarg_mapping = {
@@ -2964,7 +2966,6 @@ class workflow(Signature):
 
     def add_node(self, sig, inputs=None, depends_on=None, unpack_outputs=False):
         if sig.task == "celery.group":
-            #sig = chord(sig.tasks, ident.s())
             sig = chord(sig.tasks, self.app.tasks['celery.accumulate'].s(index=0))
 
         self.nodes.append(sig)

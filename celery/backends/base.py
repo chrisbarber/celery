@@ -28,7 +28,7 @@ from celery._state import get_current_task
 from celery.app.task import Context
 from celery.exceptions import (BackendGetMetaError, BackendStoreError, ChordError, ImproperlyConfigured,
                                NotRegistered, SecurityError, TaskRevokedError, TimeoutError)
-from celery.result import GroupResult, ResultBase, ResultSet, allow_join_result, result_from_tuple
+from celery.result import AsyncResult, GroupResult, ResultBase, ResultSet, allow_join_result, result_from_tuple
 from celery.utils.collections import BufferMap
 from celery.utils.functional import LRUCache, arity_greater, maybe_list
 from celery.utils.log import get_logger
@@ -1021,7 +1021,19 @@ class Backend:
         raise NotImplementedError('Backend does not support add_to_chord')
 
     def on_chord_part_return(self, request, state, result, **kwargs):
-        pass
+        if request and request.workflow:
+            for workflow_elem in request.workflow:
+                parents = workflow_elem["parents"]
+                if 0 == parents.index(request.id):
+                    self.fallback_chord_unlock(
+                        GroupResult(
+                            id=workflow_elem["group"],
+                            results=[
+                                AsyncResult(parent) for parent in parents if parent is not None
+                            ],
+                        ),
+                        maybe_signature(workflow_elem["chord"]),
+                    )
 
     def set_chord_size(self, group_id, chord_size):
         pass

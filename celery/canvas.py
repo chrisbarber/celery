@@ -2903,6 +2903,8 @@ class workflow(Signature):
                 parent_sig = self.nodes[parent_idx]
                 if isinstance(parent_sig, workflow):
                     output_sig = parent_sig.nodes[-1]
+                elif isinstance(parent_sig, _chord):
+                    output_sig = parent_sig.body
                 else:
                     output_sig = parent_sig
                 output_sig.set(chord=None)

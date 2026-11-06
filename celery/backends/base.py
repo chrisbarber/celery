@@ -294,7 +294,7 @@ class Backend:
             self.store_result(task_id, result, state, request=request)
         if request and request.chord:
             self.on_chord_part_return(request, state, result)
-        elif request and request.workflow:
+        if request and request.workflow:
             for workflow_elem in request.workflow:
                 new_request = Context(request.__dict__)
                 new_request.group = workflow_elem["group"]

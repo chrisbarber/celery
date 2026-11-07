@@ -4086,8 +4086,8 @@ class test_workflow:
         n1 = w1.add_node(add.s(1, 1))
         w2 = workflow()
         n2 = w2.add_node(add.s(2, 2))
-        result = w1.prepare(outputs=n1).freeze()
-        result = w2.prepare(outputs=n2).freeze()
+        w1.prepare(outputs=n1).freeze()
+        w2.prepare(outputs=n2).freeze()
         result = chord([w1, w2], tsum.s()).delay()
         result = result.get(timeout=TIMEOUT)
         assert result == 6

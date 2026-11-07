@@ -2836,6 +2836,7 @@ class workflow(Signature):
         self.nodes = self.tasks or []
         self.g = {int(k): v for k, v in g.items()} if g else {}
         self.prepared = bool(self.nodes)
+        self.subtask_type = "workflow"
 
         super().__init__(
             "workflow", args=args, kwargs=self.kwargs, app=app, subtask_type="workflow", **options
@@ -2856,12 +2857,6 @@ class workflow(Signature):
         for node in self.nodes:
             node.set(group_id=group_id, root_id=root_id, parent_id=parent_id, group_index=group_index)
         return self.AsyncResult(self.nodes[-1].id)
-
-    def to_celery(self, outputs=None, **options):
-        outputs = outputs or self.nodes
-        self.prepare(outputs=outputs)
-        self.freeze(**options)
-        return self
 
     def prepare(self, _id=None, outputs=None):
         if self.prepared:
@@ -2943,8 +2938,7 @@ class workflow(Signature):
             if parent_idxs:
                 node_sig.app.backend.set_chord_size(group_id, len(parent_idxs))
         for node in self.nodes:
-            if node.options.get("deferred"):
-                node.set(workflow_output_id=self.nodes[-1].id)
+            node.set(workflow_output_id=self.nodes[-1].id)
         self.tasks = self.nodes
         self.prepared = True
         return self
@@ -2957,13 +2951,10 @@ class workflow(Signature):
 
         self.nodes[-1].set(**options)
 
-        #if current_task:
-        #    self.stamp(**current_task.request.stamps)
-
         options = {k: v for k, v in options.items() if k not in ("chord", "group_id")}
 
         for idx, node in enumerate(self.nodes):
-            if idx not in self.g and not node.options.get("deferred"):
+            if idx not in self.g:
                 node.apply_async(args=args, kwargs=kwargs, **options)
 
         return self.AsyncResult(self.nodes[-1].id)
@@ -2993,11 +2984,6 @@ class workflow(Signature):
             sig.set(unpack_outputs=True)
         return sig
 
-    def add_deferred_input(self):
-        node = self.add_node(ident.s())
-        node.options.setdefault("deferred", True)
-        return node
-
     def stamp(self, visitor=None, append_stamps=False, **headers):
         for node in self.nodes:
             node.stamp(visitor=visitor, append_stamps=append_stamps, **headers)
@@ -3019,8 +3005,6 @@ class workflow(Signature):
         for idx, node in enumerate(self.nodes):
             if idx not in self.g:
                 node.set_immutable(immutable)
-
-    subtask_type = "workflow"
 
 
 def signature(varies, *args, **kwargs):

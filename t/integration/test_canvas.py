@@ -4079,7 +4079,55 @@ class test_workflow:
         n3 = w.add_node(tsum.s(), inputs={"nums": n1})
         n4 = w.add_node(add.s(), inputs={"x": n2, "y": n3})
 
-        assert w.apply_async(outputs=[n2, n1, n4, n3]).get(timeout=5) == [6, [2, 4], 12, 6]
+        assert w.apply_async(outputs=[n2, n1, n4, n3]).get(timeout=TIMEOUT) == [6, [2, 4], 12, 6]
+
+    def test_chord_of_workflows(self, manager):
+        w1 = workflow()
+        n1 = w1.add_node(add.s(1, 1))
+        w2 = workflow()
+        n2 = w2.add_node(add.s(2, 2))
+        result = w1.prepare(outputs=n1).freeze()
+        result = w2.prepare(outputs=n2).freeze()
+        result = chord([w1, w2], tsum.s()).delay()
+        result = result.get(timeout=TIMEOUT)
+        assert result == 6
+
+    #def test_node_replace_chord_of_chains(self, manager):
+    #    w = workflow()
+    #    w.add_node(replace_with_chord_of_chains.s())
+    #    result = w.apply_async(outputs=w.nodes).get(timeout=TIMEOUT)
+    #    assert result == [[0, 2, 4, 6, 8]]
+
+    #def test_replace_with_group_of_workflows(self, manager):
+    #    result = replace_with_group_of_wf.s().delay().get(timeout=5)
+    #    assert result == [[0, 0, 0], [2, 2, 4], [4, 4, 8], [6, 6, 12], [8, 8, 16]]
+
+    def test_outputs(self, manager):
+        w = workflow()
+        n1 = w.add_node(group([add.si(1, 1), add.si(2, 2)]))
+        n2 = w.add_node(add.si(3, 3))
+        n3 = w.add_node(tsum.s(), inputs={"nums": n1})
+        n4 = w.add_node(add.s(), inputs={"x": n2, "y": n3})
+
+        assert w.apply_async(outputs=[n2, n1, n4, n3]).get(timeout=TIMEOUT) == [6, [2, 4], 12, 6]
+
+    def test_single_output(self, manager):
+        w = workflow()
+        n1 = w.add_node(group([add.si(1, 1), add.si(2, 2)]))
+        n2 = w.add_node(add.si(3, 3))
+        n3 = w.add_node(tsum.s(), inputs={"nums": n1})
+        w.add_node(add.s(), inputs={"x": n2, "y": n3})
+
+        assert w.apply_async(outputs=n1).get(timeout=TIMEOUT) == [2, 4]
+
+    def test_single_output_list(self, manager):
+        w = workflow()
+        n1 = w.add_node(group([add.si(1, 1), add.si(2, 2)]))
+        n2 = w.add_node(add.si(3, 3))
+        n3 = w.add_node(tsum.s(), inputs={"nums": n1})
+        w.add_node(add.s(), inputs={"x": n2, "y": n3})
+
+        assert w.apply_async(outputs=[n1]).get(timeout=TIMEOUT) == [[2, 4]]
 
 
 class test_xmap_xstarmap:

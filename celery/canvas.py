@@ -2853,8 +2853,8 @@ class workflow(Signature):
         # prepare with all nodes as outputs if not yet prepared
         self.prepare(_id, self.nodes)
         for node in self.nodes:
-            node.set(**{k: v for k, v in options.items() if k != "chord"})
-        return AsyncResult(self.nodes[-1].id)
+            node.set(group_id=group_id, root_id=root_id, parent_id=parent_id, group_index=group_index)
+        return self.AsyncResult(self.nodes[-1].id)
 
     def to_celery(self, outputs=None, **options):
         outputs = outputs or self.nodes
@@ -2946,6 +2946,7 @@ class workflow(Signature):
                 node.set(workflow_output_id=self.nodes[-1].id)
         self.tasks = self.nodes
         self.prepared = True
+        return self
 
     def apply_async(self, args=None, kwargs=None, outputs=None, **options):
         if not self.prepared:

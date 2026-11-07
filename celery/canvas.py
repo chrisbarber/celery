@@ -2652,6 +2652,7 @@ class _chord(Signature):
         options.pop('chain', None)
         # Neither should chords, for deeply nested chords to work
         options.pop('chord', None)
+        options.pop('workflow', None)
         options.pop('task_id', None)
 
         header.options['task_id'] = group_id

@@ -25,7 +25,7 @@ from .tasks import (ExpectedException, StampOnReplace, add, add_chord_to_chord, 
                     redis_echo_group_id, replace_with_chain, replace_with_chain_which_contains_a_group,
                     replace_with_chain_which_raises, replace_with_empty_chain, replace_with_stamped_task, retry_once,
                     return_exception, return_priority, return_request_eta, second_order_replace1, tsum,
-                    write_to_file_and_return_int, xsum)
+                    write_to_file_and_return_int, xsum, replace_with_group_of_wf, replace_with_chord_of_chains)
 
 TIMEOUT = 60
 
@@ -4092,15 +4092,15 @@ class test_workflow:
         result = result.get(timeout=TIMEOUT)
         assert result == 6
 
-    #def test_node_replace_chord_of_chains(self, manager):
-    #    w = workflow()
-    #    w.add_node(replace_with_chord_of_chains.s())
-    #    result = w.apply_async(outputs=w.nodes).get(timeout=TIMEOUT)
-    #    assert result == [[0, 2, 4, 6, 8]]
+    def test_node_replace_chord_of_chains(self, manager):
+        w = workflow()
+        w.add_node(replace_with_chord_of_chains.s())
+        result = w.apply_async(outputs=w.nodes).get(timeout=TIMEOUT)
+        assert result == [[0, 2, 4, 6, 8]]
 
-    #def test_replace_with_group_of_workflows(self, manager):
-    #    result = replace_with_group_of_wf.s().delay().get(timeout=5)
-    #    assert result == [[0, 0, 0], [2, 2, 4], [4, 4, 8], [6, 6, 12], [8, 8, 16]]
+    def test_replace_with_group_of_workflows(self, manager):
+        result = replace_with_group_of_wf.s().delay().get(timeout=TIMEOUT)
+        assert result == [[0, 0, 0], [2, 2, 4], [4, 4, 8], [6, 6, 12], [8, 8, 16]]
 
     def test_outputs(self, manager):
         w = workflow()

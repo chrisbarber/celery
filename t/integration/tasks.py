@@ -4,7 +4,7 @@ from time import sleep
 
 from pydantic import BaseModel
 
-from celery import Signature, Task, chain, chord, group, shared_task
+from celery import Signature, Task, chain, chord, group, shared_task, workflow
 from celery.canvas import signature
 from celery.exceptions import Reject, SoftTimeLimitExceeded
 from celery.utils.log import get_task_logger
@@ -212,6 +212,23 @@ def replace_with_empty_chain(self, *_):
 @shared_task(bind=True)
 def replace_with_chain_which_contains_a_group(self):
     return self.replace(chain(add.s(1, 2), group(add.s(1), add.s(1))))
+
+
+@shared_task(bind=True)
+def replace_with_group_of_wf(self) -> None:
+    tasks_group = []
+    for i in range(5):
+        w = workflow()
+        n1 = w.add_node(add.s(i, i))
+        n2 = w.add_node(add.s(i, i))
+        w.add_node(add.s(), inputs={"x": n1, "y": n2})
+        tasks_group.append(w.to_celery(w.nodes))
+    raise self.replace(group(tasks_group))
+
+
+@shared_task(bind=True)
+def replace_with_chord_of_chains(self) -> None:
+    raise self.replace(chord([chain([add.si(i, i), add.si(i, i)]) for i in range(5)], identity.s()))
 
 
 @shared_task(bind=True)

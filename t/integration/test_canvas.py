@@ -4081,6 +4081,14 @@ class test_workflow:
 
         assert w.apply_async(outputs=[n2, n1, n4, n3]).get(timeout=TIMEOUT) == [6, [2, 4], 12, 6]
 
+    def test_chain(self, manager):
+        w = workflow()
+        n1 = w.add_node(chain([add.si(1, 1), add.si(2, 2)]))
+        n2 = w.add_node(chain([add.si(3, 3), add.si(4, 4)]))
+        n3 = w.add_node(add.s(), inputs={"x": n1, "y": n2})
+
+        assert w.apply_async(outputs=n3).get(timeout=TIMEOUT) == 12
+
     def test_chord_of_workflows(self, manager):
         w1 = workflow()
         n1 = w1.add_node(add.s(1, 1))
@@ -4089,6 +4097,17 @@ class test_workflow:
         w1.prepare(outputs=n1).freeze()
         w2.prepare(outputs=n2).freeze()
         result = chord([w1, w2], tsum.s()).delay()
+        result = result.get(timeout=TIMEOUT)
+        assert result == 6
+
+    def test_chain_of_workflows(self, manager):
+        w1 = workflow()
+        n1 = w1.add_node(group([add.s(1, 1), add.s(2, 2)]))
+        w2 = workflow()
+        n2 = w2.add_node(tsum.s())
+        w1.prepare(outputs=n1).freeze()
+        w2.prepare(outputs=n2).freeze()
+        result = chain([w1, w2]).delay()
         result = result.get(timeout=TIMEOUT)
         assert result == 6
 

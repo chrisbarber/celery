@@ -2901,6 +2901,8 @@ class workflow(Signature):
                     output_sig = parent_sig.nodes[-1]
                 elif isinstance(parent_sig, _chord):
                     output_sig = parent_sig.body
+                elif isinstance(parent_sig, _chain):
+                    output_sig = parent_sig.tasks[-1]
                 else:
                     output_sig = parent_sig
                 output_sig.set(chord=None)
@@ -2914,7 +2916,8 @@ class workflow(Signature):
                             (
                                 t.nodes[-1].id
                                 if isinstance(t, workflow)
-                                else t.body.id if getattr(t, "tasks", None) else t.id
+                                else t.body.id if isinstance(t, _chord)
+                                else t.tasks[-1].id if isinstance(t, _chain) else t.id
                             )
                             for t in header_tasks
                         ]

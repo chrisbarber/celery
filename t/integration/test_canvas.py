@@ -4130,6 +4130,13 @@ class test_workflow:
         result = replace_with_group_of_wf.s().delay().get(timeout=TIMEOUT)
         assert result == [[0, 0, 0], [2, 2, 4], [4, 4, 8], [6, 6, 12], [8, 8, 16]]
 
+    def test_replace_with_chain_which_contains_a_group(self, manager):
+        w = workflow()
+        n1 = w.add_node(replace_with_chain_which_contains_a_group.s())
+        n2 = w.add_node(tsum.s(), inputs={"nums": n1})
+        result = w.apply_async(outputs=n2).get(timeout=TIMEOUT)
+        assert result == 8
+
     def test_outputs(self, manager):
         w = workflow()
         n1 = w.add_node(group([add.si(1, 1), add.si(2, 2)]))

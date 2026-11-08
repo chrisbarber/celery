@@ -2965,6 +2965,9 @@ class workflow(Signature):
     def add_node(self, sig, inputs=None, depends_on=None, unpack_outputs=False):
         if sig.task == "celery.group":
             sig = chord(sig.tasks, self.app.tasks['celery.accumulate'].s(index=0))
+        elif isinstance(sig, _chain) and sig.tasks[-1].task == "celery.group":
+            sig = sig.clone()
+            sig.tasks[-1] = chord(sig.tasks[-1].tasks, self.app.tasks['celery.accumulate'].s(index=0))
 
         self.nodes.append(sig)
         node_ids = [id(node) for node in self.nodes]

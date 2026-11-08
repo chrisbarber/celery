@@ -4081,6 +4081,15 @@ class test_workflow:
 
         assert w.apply_async(outputs=[n2, n1, n4, n3]).get(timeout=TIMEOUT) == [6, [2, 4], 12, 6]
 
+    def test_chain_ending_with_group(self, manager):
+        w = workflow()
+        n1 = w.add_node(chain(add.si(0, 0), group([add.si(1, 1), add.si(2, 2)])))
+        n2 = w.add_node(add.si(3, 3))
+        n3 = w.add_node(tsum.s(), inputs={"nums": n1})
+        n4 = w.add_node(add.s(), inputs={"x": n2, "y": n3})
+
+        assert w.apply_async(outputs=[n2, n1, n4, n3]).get(timeout=TIMEOUT) == [6, [2, 4], 12, 6]
+
     def test_chain(self, manager):
         w = workflow()
         n1 = w.add_node(chain([add.si(1, 1), add.si(2, 2)]))

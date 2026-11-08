@@ -2966,7 +2966,7 @@ class workflow(Signature):
         if sig.task == "celery.group":
             sig = chord(sig.tasks, self.app.tasks['celery.accumulate'].s(index=0))
         elif isinstance(sig, _chain) and sig.tasks[-1].task == "celery.group":
-            sig = sig.clone()
+            sig.tasks = list(sig.tasks)
             sig.tasks[-1] = chord(sig.tasks[-1].tasks, self.app.tasks['celery.accumulate'].s(index=0))
 
         self.nodes.append(sig)

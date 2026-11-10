@@ -2830,16 +2830,20 @@ chord = _chord
 @Signature.register_type(name="workflow")
 class workflow(Signature):
     tasks = getitem_property("kwargs.tasks", "Tasks in workflow.")
+    output_idxs = getitem_property("kwargs.output_idxs", "Indexes into nodes for desired outputs.")
+    prepared = getitem_property("kwargs.prepared", "Boolean; workflow is prepared.")
     g = getitem_property("kwargs.g", "Tasks graph.")
 
-    def __init__(self, tasks=None, g=None, args=None, kwargs=None, app=None, **options):
+    def __init__(self, tasks=None, output_idxs=None, prepared=None, g=None, args=None, kwargs=None, app=None, **options):
 
         self.kwargs = {}
 
-        self.tasks = [maybe_signature(task) for task in tasks] if tasks else None
-        self.nodes = self.tasks or []
+        self.tasks = [maybe_signature(task) for task in tasks] if tasks else []
+        self.nodes = self.tasks
+        self.outputs = None
         self.g = {int(k): v for k, v in g.items()} if g else {}
-        self.prepared = bool(self.nodes)
+        self.output_idxs = output_idxs
+        self.prepared = prepared
         self.subtask_type = "workflow"
 
         super().__init__(
@@ -2856,34 +2860,29 @@ class workflow(Signature):
 
     def freeze(self, _id=None, group_id=None, chord=None, workflow=None,
                root_id=None, parent_id=None, group_index=None):
-        # prepare with all nodes as outputs if not yet prepared
-        self.prepare(_id, self.nodes)
         for node in self.nodes:
             node.set(group_id=group_id, root_id=root_id, parent_id=parent_id, group_index=group_index)
+        self.nodes[-1].freeze()
         return self.AsyncResult(self.nodes[-1].id)
 
-    def prepare(self, _id=None, outputs=None):
+    def set_outputs(self, outputs=None):
+        if isinstance(outputs, list):
+            self.output_idxs = [self.nodes.index(output) for output in outputs]
+        elif outputs is not None:
+            self.output_idxs = self.nodes.index(outputs)
+        else:
+            self.output_idxs = list(range(len(self.nodes)))
+
+    def prepare(self, _id=None, outputs=None, **options):
         if self.prepared:
             return
-        if isinstance(outputs, list):
-            output_node_ids = [id(node) for node in outputs]
-        elif outputs:
-            output_node_ids = id(outputs)
-        else:
-            output_node_ids = None
+        if outputs is not None or self.output_idxs is None:
+            self.set_outputs(outputs=outputs)
         self.nodes.append(self.app.tasks['celery.accumulate'].s(kwarg="arg"))
         if _id:
             self.nodes[-1].freeze(_id)
-        if not output_node_ids:
-            self.g[len(self.nodes) - 1] = {"arg": list(range(len(self.nodes) - 1))}
-        else:
-            node_ids = [id(node) for node in self.nodes]
-            if isinstance(output_node_ids, list):
-                self.g[len(self.nodes) - 1] = {
-                    "arg": [node_ids.index(output) for output in output_node_ids]
-                }
-            else:
-                self.g[len(self.nodes) - 1] = {"arg": node_ids.index(output_node_ids)}
+        self.nodes[-1].set(**options)
+        self.g[len(self.nodes) - 1] = {"arg": self.output_idxs}
         kwarg_map = {}
         for node_idx, parents in self.g.items():
             parent_idxs = [
@@ -2951,14 +2950,13 @@ class workflow(Signature):
         return self
 
     def apply_async(self, args=None, kwargs=None, outputs=None, **options):
-        if not self.prepared:
-            self.prepare(outputs=outputs)
 
         options = {k: v for k, v in options.items() if k not in ("group_index", "producer")}
 
-        self.nodes[-1].set(**options)
+        if not self.prepared:
+            self.prepare(outputs=outputs, **options)
 
-        options = {k: v for k, v in options.items() if k not in ("chord", "group_id")}
+        options = {k: v for k, v in options.items() if k not in ("chain", "chord", "group_id")}
 
         for idx, node in enumerate(self.nodes):
             if idx not in self.g:

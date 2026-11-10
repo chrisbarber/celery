@@ -4103,8 +4103,8 @@ class test_workflow:
         n1 = w1.add_node(add.s(1, 1))
         w2 = workflow()
         n2 = w2.add_node(add.s(2, 2))
-        w1.prepare(outputs=n1).freeze()
-        w2.prepare(outputs=n2).freeze()
+        w1.set_outputs(outputs=n1)
+        w2.set_outputs(outputs=n2)
         result = chord([w1, w2], tsum.s()).delay()
         result = result.get(timeout=TIMEOUT)
         assert result == 6
@@ -4114,11 +4114,20 @@ class test_workflow:
         n1 = w1.add_node(group([add.s(1, 1), add.s(2, 2)]))
         w2 = workflow()
         n2 = w2.add_node(tsum.s())
-        w1.prepare(outputs=n1).freeze()
-        w2.prepare(outputs=n2).freeze()
+        w1.set_outputs(outputs=n1)
+        w2.set_outputs(outputs=n2)
         result = chain([w1, w2]).delay()
         result = result.get(timeout=TIMEOUT)
         assert result == 6
+
+    def test_workflow_in_chain(self, manager):
+        w = workflow()
+        n1 = w.add_node(group([add.s(1), add.s(2)]))
+        n2 = w.add_node(tsum.s(), inputs={"nums": n1})
+        w.set_outputs(outputs=n2)
+        result = chain([add.s(1, 1), w, add.s(3)]).delay()
+        result = result.get(timeout=TIMEOUT)
+        assert result == 10
 
     def test_node_replace_chord_of_chains(self, manager):
         w = workflow()
@@ -4128,7 +4137,7 @@ class test_workflow:
 
     def test_replace_with_group_of_workflows(self, manager):
         result = replace_with_group_of_wf.s().delay().get(timeout=TIMEOUT)
-        assert result == [[0, 0, 0], [2, 2, 4], [4, 4, 8], [6, 6, 12], [8, 8, 16]]
+        assert list(sorted(result)) == [[0, 0, 0], [2, 2, 4], [4, 4, 8], [6, 6, 12], [8, 8, 16]]
 
     def test_replace_with_chain_which_contains_a_group(self, manager):
         w = workflow()

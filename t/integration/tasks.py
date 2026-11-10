@@ -222,7 +222,8 @@ def replace_with_group_of_wf(self) -> None:
         n1 = w.add_node(add.s(i, i))
         n2 = w.add_node(add.s(i, i))
         w.add_node(add.s(), inputs={"x": n1, "y": n2})
-        tasks_group.append(w.prepare(outputs=w.nodes))
+        w.set_outputs(outputs=w.nodes)
+        tasks_group.append(w)
     raise self.replace(group(tasks_group))
 
 

@@ -297,6 +297,7 @@ class Backend:
         if request and request.workflow:
             for workflow_elem in request.workflow:
                 new_request = Context(request.__dict__)
+                new_request.workflow = None
                 new_request.group = workflow_elem["group"]
                 new_request.group_index = workflow_elem["group_index"]
                 new_request.chord = workflow_elem["chord"]

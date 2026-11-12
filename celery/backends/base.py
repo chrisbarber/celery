@@ -301,7 +301,7 @@ class Backend:
                 new_request.group = workflow_elem["group"]
                 new_request.group_index = workflow_elem["group_index"]
                 new_request.chord = workflow_elem["chord"]
-                self.on_chord_part_return(new_request, state, result)
+                self.on_chord_part_return(new_request, state, result, parents=workflow_elem["parents"])
 
     def mark_as_failure(self, task_id, exc,
                         traceback=None, request=None,
@@ -1022,19 +1022,17 @@ class Backend:
         raise NotImplementedError('Backend does not support add_to_chord')
 
     def on_chord_part_return(self, request, state, result, **kwargs):
-        if request and request.workflow:
-            for workflow_elem in request.workflow:
-                parents = workflow_elem["parents"]
-                if 0 == parents.index(request.id):
-                    self.fallback_chord_unlock(
-                        GroupResult(
-                            id=workflow_elem["group"],
-                            results=[
-                                AsyncResult(parent) for parent in parents if parent is not None
-                            ],
-                        ),
-                        maybe_signature(workflow_elem["chord"]),
-                    )
+        parents = kwargs.pop("parents", None)
+        if parents and 0 == parents.index(request.id):
+            self.fallback_chord_unlock(
+                GroupResult(
+                    id=request.group,
+                    results=[
+                        AsyncResult(parent) for parent in parents if parent is not None
+                    ],
+                ),
+                maybe_signature(request.chord),
+            )
 
     def set_chord_size(self, group_id, chord_size):
         pass

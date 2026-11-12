@@ -2860,22 +2860,22 @@ class workflow(Signature):
 
     def freeze(self, _id=None, group_id=None, chord=None, workflow=None,
                root_id=None, parent_id=None, group_index=None):
+        self.prepare(_id)
         for node in self.nodes:
             node.set(group_id=group_id, root_id=root_id, parent_id=parent_id, group_index=group_index)
         self.nodes[-1].freeze()
         return self.AsyncResult(self.nodes[-1].id)
 
     def set_outputs(self, outputs=None):
+        node_ids = [id(node) for node in self.nodes]
         if isinstance(outputs, list):
-            self.output_idxs = [self.nodes.index(output) for output in outputs]
+            self.output_idxs = [node_ids.index(id(output)) for output in outputs]
         elif outputs is not None:
-            self.output_idxs = self.nodes.index(outputs)
+            self.output_idxs = node_ids.index(id(outputs))
         else:
             self.output_idxs = list(range(len(self.nodes)))
 
     def prepare(self, _id=None, outputs=None, **options):
-        if self.prepared:
-            return
         if outputs is not None or self.output_idxs is None:
             self.set_outputs(outputs=outputs)
         self.nodes.append(self.app.tasks['celery.accumulate'].s(kwarg="arg"))
@@ -2920,13 +2920,13 @@ class workflow(Signature):
                                 t.nodes[-1].id
                                 if isinstance(t, workflow)
                                 else t.body.id if isinstance(t, _chord)
-                                else t.tasks[-1].id if isinstance(t, _chain) else t.id
+                                else t.id
                             )
                             for t in header_tasks
                         ]
                     }
                 )
-            if not node_sig.immutable and any(p for p in parents.keys() if p is not None):
+            if not node_sig.immutable and any(p is not None for p in parents.keys()):
                 kwarg_mapping = {
                     kwarg: (
                         kwarg_map[parent_idx]
@@ -2953,8 +2953,7 @@ class workflow(Signature):
 
         options = {k: v for k, v in options.items() if k not in ("group_index", "producer")}
 
-        if not self.prepared:
-            self.prepare(outputs=outputs, **options)
+        self.prepare(outputs=outputs, **options)
 
         options = {k: v for k, v in options.items() if k not in ("chain", "chord", "group_id")}
 
